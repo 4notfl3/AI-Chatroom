@@ -3,7 +3,7 @@
     <div class="main-header">
       <h2 class="header-title">
         <template v-if="activeTarget === 'llm'">AI Chat</template>
-        <template v-else-if="privateChatUser">@{{ privateChatUser.username }}</template>
+        <template v-else-if="activeTarget === 'user' && privateChatUser">@{{ privateChatUser.username }}</template>
         <template v-else>聊天室</template>
       </h2>
       <span v-if="activeTarget === 'llm'" class="model-badge">{{ selectedModel }}</span>
@@ -25,7 +25,9 @@
 import { useChat } from '~/composables/useChat'
 
 const chat = useChat()
-const { activeTarget, selectedModel, privateChatUser, messages } = chat
+const { activeTarget, selectedModel, privateChatUser, currentMessages: getMessages } = chat
+
+const messages = computed(() => getMessages())
 </script>
 
 <style scoped>

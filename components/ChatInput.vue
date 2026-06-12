@@ -2,7 +2,7 @@
   <div class="input-area">
     <div v-if="privateChatUser" class="private-badge">
       <span>DM: {{ privateChatUser.username }}</span>
-      <button class="badge-close" @click="privateChatUser = null">×</button>
+      <button class="badge-close" @click="switchTarget('broadcast')">×</button>
     </div>
     <form class="input-row" @submit.prevent="handleSend">
       <button
@@ -54,7 +54,7 @@ import { useChat } from '~/composables/useChat'
 
 const chat = useChat()
 const {
-  activeTarget, privateChatUser, sendBroadcast, sendPrivate, sendLLM
+  activeTarget, privateChatUser, sendBroadcast, sendPrivate, sendLLM, switchTarget
 } = chat
 
 const text = ref('')

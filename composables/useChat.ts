@@ -30,22 +30,45 @@ const joined = ref(false)
 const connected = ref(false)
 const connecting = ref(false)
 
-const activeTarget = ref<'broadcast' | 'llm'>('broadcast')
+const activeTarget = ref<'broadcast' | 'llm' | 'user'>('broadcast')
 const selectedModel = ref('qwen3.6-plus')
 const models = ref<Model[]>([])
 const users = ref<User[]>([])
-const messages = ref<ChatMessage[]>([])
 const privateChatUser = ref<User | null>(null)
 const error = ref('')
+
+const messageBus = reactive<Record<string, ChatMessage[]>>({})
+
+function bucketKey(): string {
+  if (activeTarget.value === 'user' && privateChatUser.value) return 'user_' + privateChatUser.value.id
+  return activeTarget.value
+}
+
+function currentMessages(): ChatMessage[] {
+  const key = bucketKey()
+  if (!messageBus[key]) messageBus[key] = []
+  return messageBus[key]
+}
+
+function addMessage(msg: ChatMessage, toBucket?: string) {
+  const key = toBucket || bucketKey()
+  if (!messageBus[key]) messageBus[key] = []
+  messageBus[key].push(msg)
+}
+
+function switchTarget(target: 'broadcast' | 'llm' | 'user', user?: User | null) {
+  activeTarget.value = target
+  if (target === 'user' && user) {
+    privateChatUser.value = user
+  } else if (target !== 'user') {
+    privateChatUser.value = null
+  }
+}
 
 let ws: WebSocket | null = null
 let currentStreamingMsg: ChatMessage | null = null
 let connectTimer: ReturnType<typeof setTimeout> | null = null
 const seenMsgKeys = new Set<string>()
-
-function addMessage(msg: ChatMessage) {
-  messages.value.push(msg)
-}
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -102,7 +125,7 @@ function connect() {
     joined.value = false
     connecting.value = false
     if (wasJoined) {
-      messages.value = []
+      Object.keys(messageBus).forEach(k => delete messageBus[k])
       users.value = []
       currentStreamingMsg = null
       privateChatUser.value = null
@@ -173,6 +196,8 @@ function handleMessage(data: any) {
       } else if (data.target === 'user') {
         const isFromMe = data.from?.id === userId.value
         const toId = data.to?.id || ''
+        const partnerId = isFromMe ? toId : (data.from?.id || '')
+        const bucket = 'user_' + partnerId
         if (isFromMe && data.from?.id === toId) {
           const key = `${data.from?.id}|${toId}|${data.content}|${data.time}`
           if (seenMsgKeys.has(key)) { return }
@@ -186,7 +211,7 @@ function handleMessage(data: any) {
           to: data.to?.username || 'Unknown',
           content: data.content,
           time: data.time
-        })
+        }, bucket)
         if (!isFromMe && data.from?.id && (!privateChatUser.value || privateChatUser.value.id !== data.from.id)) {
           privateChatUser.value = { id: data.from.id, username: data.from.username }
         }
@@ -195,7 +220,7 @@ function handleMessage(data: any) {
 
     case 'llm.delta':
       if (!currentStreamingMsg) {
-        currentStreamingMsg = {
+        const raw: ChatMessage = {
           id: genId(),
           type: 'llm-delta',
           from: data.model || 'AI',
@@ -203,7 +228,9 @@ function handleMessage(data: any) {
           time: new Date().toISOString(),
           streaming: true
         }
-        addMessage(currentStreamingMsg)
+        if (!messageBus['llm']) messageBus['llm'] = []
+        messageBus['llm'].push(raw)
+        currentStreamingMsg = messageBus['llm'][messageBus['llm'].length - 1]
       } else {
         currentStreamingMsg.content += data.content || ''
       }
@@ -220,7 +247,7 @@ function handleMessage(data: any) {
         from: data.model || 'AI',
         content: '',
         time: new Date().toISOString()
-      })
+      }, 'llm')
       break
 
     case 'error':
@@ -257,7 +284,7 @@ function sendLLM(content: string, apiKey: string) {
     fromId: userId.value,
     content,
     time: new Date().toISOString()
-  })
+  }, 'llm')
   ws.send(JSON.stringify({
     type: 'chat',
     target: 'llm',
@@ -277,7 +304,7 @@ function disconnect() {
   ws = null
   connected.value = false
   joined.value = false
-  messages.value = []
+  Object.keys(messageBus).forEach(k => delete messageBus[k])
   users.value = []
   currentStreamingMsg = null
   privateChatUser.value = null
@@ -295,13 +322,14 @@ export const useChat = () => {
     selectedModel,
     models,
     users,
-    messages,
+    currentMessages,
     privateChatUser,
     error,
     formatTime,
     fetchModels,
     connect,
     disconnect,
+    switchTarget,
     sendBroadcast,
     sendPrivate,
     sendLLM

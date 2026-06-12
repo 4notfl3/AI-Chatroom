@@ -9,7 +9,7 @@
       <button
         class="target-btn"
         :class="{ active: activeTarget === 'broadcast' }"
-        @click="activeTarget = 'broadcast'"
+        @click="switchTarget('broadcast')"
       >
         <span class="target-dot broadcast-dot"></span>
         <span>Public</span>
@@ -17,7 +17,7 @@
       <button
         class="target-btn"
         :class="{ active: activeTarget === 'llm' }"
-        @click="activeTarget = 'llm'"
+        @click="switchTarget('llm')"
       >
         <span class="target-dot llm-dot"></span>
         <span>AI Chat</span>
@@ -81,7 +81,7 @@ import { useChat } from '~/composables/useChat'
 const chat = useChat()
 const {
   username, userId, users, activeTarget, selectedModel,
-  models, privateChatUser, disconnect
+  models, privateChatUser, switchTarget, disconnect
 } = chat
 
 const showModelMenu = ref(false)
@@ -107,10 +107,9 @@ function toggleModelMenu(e: MouseEvent) {
 function selectUser(u: { id: string; username: string }) {
   if (u.id === userId) return
   if (privateChatUser.value?.id === u.id) {
-    privateChatUser.value = null
-    activeTarget.value = 'broadcast'
+    switchTarget('broadcast')
   } else {
-    privateChatUser.value = u
+    switchTarget('user', u)
   }
 }
 </script>

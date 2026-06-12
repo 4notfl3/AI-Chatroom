@@ -1,3 +1,4 @@
-.nuxt/*
-node_modules/*
-node_modules/.bin/*
+.nuxt/
+.output/
+node_modules/
+package-lock.json
