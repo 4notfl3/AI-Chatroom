@@ -42,8 +42,6 @@ onMounted(() => {
 .app-root {
   height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
   background: var(--bg-primary);
 }
 
@@ -51,12 +49,18 @@ onMounted(() => {
   display: flex;
   width: 100%;
   height: 100%;
-  max-width: 1200px;
 }
 
 @media (max-width: 768px) {
   .chat-layout {
     flex-direction: column;
+  }
+
+  .toast-stack {
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+    max-width: none;
   }
 }
 

@@ -404,9 +404,26 @@ function selectUser(u: { id: string; username: string }) {
     width: 100%;
     min-width: unset;
     height: auto;
-    max-height: 40vh;
+    max-height: none;
     border-right: none;
     border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
+    padding-bottom: 4px;
   }
+  .sidebar-header { padding: 12px 16px 8px; }
+  .sidebar-logo { font-size: 16px; }
+  .sidebar-targets { padding: 0 8px; margin-bottom: 8px; }
+  .target-btn { height: 32px; font-size: 12px; }
+  .model-selector { padding: 0 8px; margin-bottom: 8px; }
+  .section-title { padding: 0 12px 4px; }
+  .user-list {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 8px;
+    gap: 4px;
+  }
+  .user-item { width: auto; padding: 6px 10px; white-space: nowrap; flex-shrink: 0; }
+  .leave-btn { margin: 6px 8px; }
 }
 </style>

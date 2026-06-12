@@ -5,28 +5,14 @@
       <button class="badge-close" @click="switchTarget('broadcast')">×</button>
     </div>
     <form class="input-row" @submit.prevent="handleSend">
-      <button
+      <input
         v-if="activeTarget === 'llm'"
-        type="button"
-        class="key-toggle"
-        :class="{ active: showKey }"
-        @click="showKey = !showKey"
-        title="API Key"
-      >
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-          <path d="M10 5.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM6.5 5.5V8M13 7l-2 2-1-1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      <Transition name="slide-key">
-        <input
-          v-if="activeTarget === 'llm' && showKey"
-          v-model="apiKey"
-          type="password"
-          class="api-key-input"
-          placeholder="Key"
-          autocomplete="off"
-        />
-      </Transition>
+        v-model="apiKey"
+        type="password"
+        class="api-key-input"
+        placeholder="Key"
+        autocomplete="off"
+      />
       <input
         ref="inputRef"
         v-model="text"
@@ -59,7 +45,6 @@ const {
 
 const text = ref('')
 const apiKey = ref('')
-const showKey = ref(false)
 const inputRef = ref<HTMLInputElement>()
 
 const placeholder = computed(() => {
@@ -125,30 +110,10 @@ function handleSend() {
   gap: 8px;
 }
 
-.key-toggle {
-  width: 36px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
-  background: var(--bg-secondary);
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.key-toggle:hover,
-.key-toggle.active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .api-key-input {
-  width: 120px;
+  width: 90px;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
   font-size: 12px;
@@ -159,19 +124,6 @@ function handleSend() {
 
 .api-key-input:focus {
   border-color: var(--accent);
-}
-
-.slide-key-enter-active,
-.slide-key-leave-active {
-  transition: width 0.15s ease, opacity 0.15s ease;
-  overflow: hidden;
-}
-.slide-key-enter-from,
-.slide-key-leave-to {
-  width: 0;
-  opacity: 0;
-  padding: 0;
-  border-color: transparent;
 }
 
 .chat-input {
@@ -219,5 +171,12 @@ function handleSend() {
 
 .send-btn:active:not(:disabled) {
   transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .input-area { padding: 10px 12px 14px; }
+  .api-key-input { width: 80px; font-size: 11px; }
+  .chat-input { font-size: 13px; min-height: 38px; }
+  .send-btn { width: 38px; height: 38px; }
 }
 </style>

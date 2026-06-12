@@ -12,5 +12,8 @@ export default defineNuxtConfig({
         changeOrigin: true
       }
     }
+  },
+  routeRules: {
+    '/api/**': { proxy: 'http://120.26.54.176:8001/**' }
   }
 })

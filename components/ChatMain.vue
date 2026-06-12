@@ -84,4 +84,10 @@ const messages = computed(() => getMessages())
   font-size: 13px;
   opacity: 0.7;
 }
+
+@media (max-width: 768px) {
+  .main-header { padding: 12px 16px; }
+  .header-title { font-size: 15px; }
+  .message-list { padding: 12px 16px; }
+}
 </style>

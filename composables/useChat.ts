@@ -21,7 +21,7 @@ export interface ChatMessage {
   streaming?: boolean
 }
 
-const API_BASE = '/api'
+const API_BASE = 'http://120.26.54.176:8001'
 const WS_URL = 'ws://120.26.54.176:8001/ws'
 
 const username = ref('')
@@ -104,13 +104,13 @@ function formatTime(iso: string) {
 
 async function fetchModels() {
   try {
-    const res = await $fetch<{ models: Model[] }>(`${API_BASE}/models`)
+    const res = await $fetch<{ models: Model[] }>('/api/models')
     models.value = res.models || []
     if (models.value.length > 0 && models.value[0].model.length > 0) {
       selectedModel.value = models.value[0].model[0]
     }
-  } catch {
-    // ignore fetch error
+  } catch (e) {
+    console.error('模型列表获取失败', e)
   }
 }
 
@@ -191,7 +191,7 @@ function handleMessage(data: any) {
         type: 'system',
         content: '欢迎！你已加入聊天',
         time: data.time
-      })
+      }, 'broadcast')
       break
 
     case 'system': {
@@ -203,7 +203,7 @@ function handleMessage(data: any) {
           event: 'joined',
           content: `${data.user?.username || data.content} joined`,
           time: data.time
-        })
+        }, 'broadcast')
       } else if (e === 'user.left' || e === 'user.leave') {
         addMessage({
           id: genId(),
@@ -211,7 +211,7 @@ function handleMessage(data: any) {
           event: 'left',
           content: `${data.user?.username || data.content} left`,
           time: data.time
-        })
+        }, 'broadcast')
         if (privateChatUser.value && data.user?.id === privateChatUser.value.id) {
           privateChatUser.value = null
         }
@@ -232,7 +232,7 @@ function handleMessage(data: any) {
           fromId: data.from?.id || '',
           content: data.content,
           time: data.time
-        })
+        }, 'broadcast')
       } else if (data.target === 'user') {
         const isFromMe = data.from?.id === userId.value
         const toId = data.to?.id || ''
@@ -256,7 +256,7 @@ function handleMessage(data: any) {
           privateChatUser.value = { id: data.from.id, username: data.from.username }
         }
         if (!isFromMe && data.from?.id && data.from?.username &&
-            (activeTarget.value !== 'user' || privateChatUser.value?.id !== data.from.id)) {
+          (activeTarget.value !== 'user' || privateChatUser.value?.id !== data.from.id)) {
           addToast({ id: data.from.id, username: data.from.username }, data.content)
         }
       }
@@ -295,6 +295,7 @@ function handleMessage(data: any) {
       break
 
     case 'error':
+      currentStreamingMsg = null
       error.value = data.message || 'An error occurred'
       if (data.code === 'USER_IS_TAKEN') {
         joined.value = false
@@ -321,6 +322,7 @@ function sendPrivate(toUserId: string, content: string) {
 
 function sendLLM(content: string, apiKey: string) {
   if (!ws || !joined.value) return
+  currentStreamingMsg = null
   addMessage({
     id: genId(),
     type: 'broadcast',
