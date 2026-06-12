@@ -37,6 +37,25 @@ const users = ref<User[]>([])
 const privateChatUser = ref<User | null>(null)
 const error = ref('')
 
+export interface Toast {
+  id: string
+  fromUser: User
+  content: string
+}
+const toasts = ref<Toast[]>([])
+
+function addToast(fromUser: User, content: string) {
+  const id = genId()
+  toasts.value.push({ id, fromUser, content })
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }, 5000)
+}
+
+function dismissToast(id: string) {
+  toasts.value = toasts.value.filter(t => t.id !== id)
+}
+
 const messageBus = reactive<Record<string, ChatMessage[]>>({})
 
 function bucketKey(): string {
@@ -68,6 +87,10 @@ function switchTarget(target: 'broadcast' | 'llm' | 'user', user?: User | null) 
 let ws: WebSocket | null = null
 let currentStreamingMsg: ChatMessage | null = null
 let connectTimer: ReturnType<typeof setTimeout> | null = null
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let reconnectAttempts = 0
+let intentionalLeave = false
 const seenMsgKeys = new Set<string>()
 
 function genId() {
@@ -93,6 +116,7 @@ async function fetchModels() {
 
 function connect() {
   if (connecting.value || connected.value) return
+  intentionalLeave = false
   error.value = ''
   connecting.value = true
 
@@ -110,7 +134,15 @@ function connect() {
     if (connectTimer) { clearTimeout(connectTimer); connectTimer = null }
     connected.value = true
     connecting.value = false
+    reconnectAttempts = 0
     ws!.send(JSON.stringify({ type: 'join', username: username.value }))
+
+    if (heartbeatTimer) clearInterval(heartbeatTimer)
+    heartbeatTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }))
+      }
+    }, 30000)
   }
 
   ws.onmessage = (event) => {
@@ -120,11 +152,19 @@ function connect() {
 
   ws.onclose = () => {
     if (connectTimer) { clearTimeout(connectTimer); connectTimer = null }
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null }
     const wasJoined = joined.value
     connected.value = false
     joined.value = false
     connecting.value = false
+    if (wasJoined && !intentionalLeave && reconnectAttempts < 10) {
+      reconnectAttempts++
+      const delay = Math.min(1000 * reconnectAttempts, 10000)
+      reconnectTimer = setTimeout(() => connect(), delay)
+      return
+    }
     if (wasJoined) {
+      joined.value = false
       Object.keys(messageBus).forEach(k => delete messageBus[k])
       users.value = []
       currentStreamingMsg = null
@@ -215,6 +255,10 @@ function handleMessage(data: any) {
         if (!isFromMe && data.from?.id && (!privateChatUser.value || privateChatUser.value.id !== data.from.id)) {
           privateChatUser.value = { id: data.from.id, username: data.from.username }
         }
+        if (!isFromMe && data.from?.id && data.from?.username &&
+            (activeTarget.value !== 'user' || privateChatUser.value?.id !== data.from.id)) {
+          addToast({ id: data.from.id, username: data.from.username }, data.content)
+        }
       }
       break
 
@@ -295,6 +339,9 @@ function sendLLM(content: string, apiKey: string) {
 }
 
 function disconnect() {
+  intentionalLeave = true
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null }
   if (ws && connected.value) {
     try {
       ws.send(JSON.stringify({ type: 'leave' }))
@@ -309,6 +356,7 @@ function disconnect() {
   currentStreamingMsg = null
   privateChatUser.value = null
   activeTarget.value = 'broadcast'
+  toasts.value = []
 }
 
 export const useChat = () => {
@@ -325,6 +373,9 @@ export const useChat = () => {
     currentMessages,
     privateChatUser,
     error,
+    toasts,
+    addToast,
+    dismissToast,
     formatTime,
     fetchModels,
     connect,
