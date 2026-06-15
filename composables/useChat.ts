@@ -73,14 +73,49 @@ function addMessage(msg: ChatMessage, toBucket?: string) {
   const key = toBucket || bucketKey()
   if (!messageBus[key]) messageBus[key] = []
   messageBus[key].push(msg)
+  persistMessage(msg, key)
+}
+
+async function persistMessage(msg: ChatMessage, channel: string) {
+  if (msg.type === 'llm-delta') return
+  try {
+    await $fetch('/api/messages', {
+      method: 'POST',
+      body: {
+        channel,
+        type: msg.type,
+        from: msg.from,
+        fromId: msg.fromId,
+        to: msg.to,
+        content: msg.content,
+        time: msg.time,
+        model: msg.model,
+        event: msg.event,
+        streaming: msg.streaming
+      }
+    })
+  } catch { /* silence */ }
+}
+
+async function loadHistory(channel: string) {
+  try {
+    const msgs = await $fetch<ChatMessage[]>(`/api/messages?channel=${encodeURIComponent(channel)}`)
+    if (msgs.length > 0) {
+      if (!messageBus[channel]) messageBus[channel] = []
+      messageBus[channel].length = 0
+      messageBus[channel].push(...msgs)
+    }
+  } catch { /* silence */ }
 }
 
 function switchTarget(target: 'broadcast' | 'llm' | 'user', user?: User | null) {
   activeTarget.value = target
   if (target === 'user' && user) {
     privateChatUser.value = user
+    loadHistory('user_' + user.id)
   } else if (target !== 'user') {
     privateChatUser.value = null
+    loadHistory(target)
   }
 }
 
@@ -186,6 +221,7 @@ function handleMessage(data: any) {
       userId.value = data.user_id
       username.value = data.username
       joined.value = true
+      loadHistory('broadcast')
       addMessage({
         id: genId(),
         type: 'system',

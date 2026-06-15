@@ -8,9 +8,12 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview"
   },
+  "dependencies": {
+    "mongoose": "^8.24.0"
+  },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "nuxt": "^3.16.0",
-    "typescript": "^5.8.0",
-    "@types/node": "^22.0.0"
+    "typescript": "^5.8.0"
   }
 }
