@@ -37,6 +37,26 @@ const users = ref<User[]>([])
 const privateChatUser = ref<User | null>(null)
 const error = ref('')
 
+export interface LogEntry {
+  id: string
+  time: string
+  action: string
+  detail: string
+}
+const logEntries = ref<LogEntry[]>([])
+
+function addLog(action: string, detail: string) {
+  logEntries.value.push({ id: genId(), time: new Date().toLocaleTimeString('zh-CN'), action, detail })
+}
+
+function logSend(data: any) {
+  logEntries.value.push({ id: genId(), time: new Date().toLocaleTimeString('zh-CN'), action: 'send', detail: `前端: ${JSON.stringify(data)}` })
+}
+
+function logRecv(data: any) {
+  logEntries.value.push({ id: genId(), time: new Date().toLocaleTimeString('zh-CN'), action: 'recv', detail: `后端: ${JSON.stringify(data)}` })
+}
+
 export interface Toast {
   id: string
   fromUser: User
@@ -151,6 +171,7 @@ async function fetchModels() {
 
 function connect() {
   if (connecting.value || connected.value) return
+  addLog('连接', '正在连接服务器...')
   intentionalLeave = false
   error.value = ''
   connecting.value = true
@@ -171,6 +192,7 @@ function connect() {
     connecting.value = false
     reconnectAttempts = 0
     ws!.send(JSON.stringify({ type: 'join', username: username.value }))
+    logSend({ type: 'join', username: username.value })
 
     if (heartbeatTimer) clearInterval(heartbeatTimer)
     heartbeatTimer = setInterval(() => {
@@ -182,6 +204,7 @@ function connect() {
 
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data)
+    logRecv(data)
     handleMessage(data)
   }
 
@@ -221,6 +244,7 @@ function handleMessage(data: any) {
       userId.value = data.user_id
       username.value = data.username
       joined.value = true
+      addLog('加入', `${data.username} 加入了聊天`)
       loadHistory('broadcast')
       addMessage({
         id: genId(),
@@ -233,6 +257,7 @@ function handleMessage(data: any) {
     case 'system': {
       const e = data.event
       if (e === 'user.joined') {
+        addLog('用户加入', `${data.user?.username || data.content} joined`)
         addMessage({
           id: genId(),
           type: 'system',
@@ -241,6 +266,7 @@ function handleMessage(data: any) {
           time: data.time
         }, 'broadcast')
       } else if (e === 'user.left' || e === 'user.leave') {
+        addLog('用户离开', `${data.user?.username || data.content} left`)
         addMessage({
           id: genId(),
           type: 'system',
@@ -261,6 +287,7 @@ function handleMessage(data: any) {
 
     case 'message':
       if (data.target === 'broadcast') {
+        addLog('广播消息', `${data.from?.username || '?'}: ${data.content?.slice(0, 30)}`)
         addMessage({
           id: genId(),
           type: 'broadcast',
@@ -272,6 +299,7 @@ function handleMessage(data: any) {
       } else if (data.target === 'user') {
         const isFromMe = data.from?.id === userId.value
         const toId = data.to?.id || ''
+        addLog(isFromMe ? '私聊发送' : '私聊接收', `${data.from?.username} → ${data.to?.username}: ${data.content?.slice(0, 30)}`)
         const partnerId = isFromMe ? toId : (data.from?.id || '')
         const bucket = 'user_' + partnerId
         if (isFromMe && data.from?.id === toId) {
@@ -348,12 +376,16 @@ function handleMessage(data: any) {
 
 function sendBroadcast(content: string) {
   if (!ws || !joined.value) return
-  ws.send(JSON.stringify({ type: 'chat', target: 'broadcast', content }))
+  const msg = { type: 'chat', target: 'broadcast', content }
+  logSend(msg)
+  ws.send(JSON.stringify(msg))
 }
 
 function sendPrivate(toUserId: string, content: string) {
   if (!ws || !joined.value) return
-  ws.send(JSON.stringify({ type: 'chat', target: 'user', to: toUserId, content }))
+  const msg = { type: 'chat', target: 'user', to: toUserId, content }
+  logSend(msg)
+  ws.send(JSON.stringify(msg))
 }
 
 function sendLLM(content: string, apiKey: string) {
@@ -367,13 +399,9 @@ function sendLLM(content: string, apiKey: string) {
     content,
     time: new Date().toISOString()
   }, 'llm')
-  ws.send(JSON.stringify({
-    type: 'chat',
-    target: 'llm',
-    model: selectedModel.value,
-    content,
-    api_key: apiKey
-  }))
+  const msg = { type: 'chat', target: 'llm', model: selectedModel.value, content, api_key: apiKey }
+  logSend(msg)
+  ws.send(JSON.stringify(msg))
 }
 
 function disconnect() {
@@ -412,6 +440,7 @@ export const useChat = () => {
     privateChatUser,
     error,
     toasts,
+    logEntries,
     addToast,
     dismissToast,
     formatTime,

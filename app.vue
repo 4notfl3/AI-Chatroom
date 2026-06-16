@@ -7,7 +7,9 @@
       <div class="chat-layout">
         <ChatSidebar />
         <ChatMain />
+        <LogPanel :show="showLog" @close="showLog = false" />
       </div>
+      <button class="log-btn" @click="showLog = !showLog" :class="{ active: showLog }">日志</button>
       <TransitionGroup name="toast" tag="div" class="toast-stack">
         <button
           v-for="t in toasts"
@@ -28,6 +30,7 @@ import { useChat } from '~/composables/useChat'
 
 const chat = useChat()
 const { joined, toasts, switchTarget } = chat
+const showLog = ref(false)
 
 function openToastChat(t: { id: string; fromUser: { id: string; username: string } }) {
   switchTarget('user', t.fromUser)
@@ -119,4 +122,22 @@ onMounted(() => {
   opacity: 0;
   transform: translateX(40px);
 }
+
+.log-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 150;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: color 0.15s, background 0.15s;
+}
+.log-btn:hover { color: var(--text-primary); background: var(--bg-secondary); }
+.log-btn.active { color: var(--accent); border-color: var(--accent); }
 </style>
