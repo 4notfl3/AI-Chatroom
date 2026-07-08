@@ -75,3 +75,7 @@ node .output/server/index.mjs
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `MONGO_URI` | `mongodb://localhost:27017/chatroom` | MongoDB 地址，不设则消息不持久化 |
+
+
+## 后端仓库
+[AI-Chatroom-API](https://github.com/4notfl3/AI-Chatroom-API)
